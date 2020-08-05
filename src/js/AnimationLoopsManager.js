@@ -12,6 +12,10 @@ export default class AnimationLoopsManager  {
     PubSub.subscribe('loops.unshift', (msg, loop) => this.animationLoops.unshift(loop))
   }
 
+  addAnimationLoop(loop) {
+    PubSub.publish('loops.push', loop)
+  }
+
   removeAnimationLoop(loop) {
     this.animationLoops = this.animationLoops.filter(item => item.id !== loop.id)
   }

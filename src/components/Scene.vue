@@ -8,7 +8,6 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { ballPositionMap } from '../js/ballPositionMap.js'
-import PubSub from 'pubsub-js'
 import AnimationLoopsManager from '../js/AnimationLoopsManager.js'
 
 export default {
@@ -89,7 +88,7 @@ export default {
       requestAnimationFrame(this.renderThreeJs)
 
       this.animationLoopsManager.animationLoops.forEach(loop => {
-        loop.loop ? loop.loop() : loop()
+        loop.loop ? loop.loop(this.balls) : loop(this.balls)
       })
 
       this.renderer.render(this.scene, this.camera)
@@ -125,11 +124,19 @@ export default {
       let animLoop = {
         id: 'ballMovement',
         alive: true,
-        loop: () => {
-          this.balls[`ball-${_x}-${_y}-${_z}`].position.x += 0.01
+        currentPositionIndex: Math.random() -0.5,
+        originPosition: null,
+        loop: function (balls) {
+          let ball = balls[`ball-${_x}-${_y}-${_z}`]
+          if (!this.originPosition) {
+            // Object.assign to really copy the object and not just put a ref
+             this.originPosition = {... ball.position}
+          }
+          ball.position.x = this.originPosition.x + Math.sin(this.currentPositionIndex)
+          this.currentPositionIndex += 0.01
         }
       }
-      PubSub.publish('loops.push', animLoop)
+      this.animationLoopsManager.addAnimationLoop(animLoop)
 
       let ballSize = Math.round(Math.random()*10) / 10 + 0.5
       let geometry = new THREE.SphereBufferGeometry(ballSize, 16, 12)
