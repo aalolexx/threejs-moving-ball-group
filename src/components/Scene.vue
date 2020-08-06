@@ -20,11 +20,21 @@ export default {
       renderer: null,
       controls: null,
 
+      cursorX: null,
+      cursorY: null,
+
       animationLoopsManager: new AnimationLoopsManager(),
 
       standardBallMaterial: null,
 
-      balls: {}
+      balls: {},
+      pointLight: null
+    }
+  },
+  created () {
+    document.onmousemove = (e) => {
+      this.cursorX = e.clientX
+      this.cursorY = e.clientY
     }
   },
   mounted () {
@@ -40,7 +50,7 @@ export default {
       0.1,
       1000
     )
-    this.camera.position.set(15, 5, 15)
+    this.camera.position.set(20, 7, 20)
     
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -63,13 +73,13 @@ export default {
     let ambientLight = new THREE.AmbientLight (0xdaccff, 0.5)
     this.scene.add(ambientLight)
 
-    let light = new THREE.PointLight(0xfc831d, 1, 100)
-    light.position.set(15, 10, 15)
-    light.castShadow = true
-    light.shadow.radius = 1
-    light.shadow.mapSize.width = 2048
-    light.shadow.mapSize.height = 2048
-    this.scene.add(light)
+    this.pointLight = new THREE.PointLight(0xfc831d, 1, 100)
+    this.pointLight.position.set(15, 10, 15)
+    this.pointLight.castShadow = true
+    this.pointLight.shadow.radius = 1
+    this.pointLight.shadow.mapSize.width = 2048
+    this.pointLight.shadow.mapSize.height = 2048
+    this.scene.add(this.pointLight)
 
     // Adding a cube
     // let geometry = new THREE.SphereGeometry()
@@ -77,7 +87,7 @@ export default {
     // let cube = new THREE.Mesh(geometry, material)
     // this.scene.add(cube)
 
-    this.standardBallMaterial = new THREE.MeshToonMaterial({color: 0xfffff0 })
+    this.standardBallMaterial = new THREE.MeshPhongMaterial({color: 0xfffff0 })
     this.addBalls()
 
     this.renderThreeJs()
@@ -91,10 +101,22 @@ export default {
         loop.loop ? loop.loop(this.balls) : loop(this.balls)
       })
 
+      this.setLightPosition()
+
       this.renderer.render(this.scene, this.camera)
       this.renderer.shadowMap.needsUpdate = true
 
       this.animationLoopsManager.cleanAnimationLoops()
+    },
+
+    setLightPosition () {
+      let maxY = 20
+      let maxX = 20
+
+      if (this.cursorX && this.cursorY) {
+        this.pointLight.position.x = (maxX / window.innerWidth * this.cursorX) + 5
+        this.pointLight.position.y = (maxY / window.innerHeight * -this.cursorY) + 10
+      }
     },
 
     addBalls () {
@@ -129,10 +151,11 @@ export default {
         loop: function (balls) {
           let ball = balls[`ball-${_x}-${_y}-${_z}`]
           if (!this.originPosition) {
-            // Object.assign to really copy the object and not just put a ref
+            // Object.assign to really copy the obj ect and not just put a ref
              this.originPosition = {... ball.position}
           }
-          ball.position.x = this.originPosition.x + Math.sin(this.currentPositionIndex)
+          //ball.position.x = this.originPosition.x + (Math.sin(this.currentPositionIndex* 3) / 4)
+          ball.position.y = this.originPosition.y + (Math.sin(this.currentPositionIndex * 3) / 4)
           this.currentPositionIndex += 0.01
         }
       }
@@ -141,9 +164,9 @@ export default {
       let ballSize = Math.round(Math.random()*10) / 10 + 0.5
       let geometry = new THREE.SphereBufferGeometry(ballSize, 16, 12)
       let ball = new THREE.Mesh(geometry, this.standardBallMaterial)
-      let x = _x * 2.3 + Math.random() - 0.5
-      let y = _y * 2.3 + Math.random() - 0.5
-      let z = _z * 2.3 + Math.random() - 0.5
+      let x = _x * 2.4 + Math.random() - 0.5
+      let y = _y * 2.6 + Math.random() - 0.5
+      let z = _z * 2.4 + Math.random() - 0.5
       ball.position.set(x, y, z)
       this.balls[`ball-${_x}-${_y}-${_z}`] = ball
       this.scene.add(ball)
