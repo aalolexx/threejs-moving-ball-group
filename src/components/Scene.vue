@@ -1,5 +1,6 @@
 <template>
   <div class="scene">
+    <button style="position: absolute; top: 5px; left: 5px;" @click="playDissolveAnim">play</button>
     <div id="three-scene-canvas"></div>
   </div>
 </template>
@@ -9,6 +10,9 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { ballPositionMap } from '../js/ballPositionMap.js'
 import AnimationLoopsManager from '../js/AnimationLoopsManager.js'
+import { animateVector3 } from '../js/AnimationUtils.js'
+import TWEEN from '@tweenjs/tween.js'
+import PubSub from 'pubsub-js'
 
 export default {
   name: 'Scene',
@@ -24,6 +28,7 @@ export default {
       cursorY: null,
 
       animationLoopsManager: new AnimationLoopsManager(),
+      isDissolveAnimationActive: false,
 
       standardBallMaterial: null,
 
@@ -31,12 +36,16 @@ export default {
       pointLight: null
     }
   },
+
+
   created () {
     document.onmousemove = (e) => {
       this.cursorX = e.clientX
       this.cursorY = e.clientY
     }
   },
+
+
   mounted () {
     /* **************
        BASIC SETUP
@@ -82,22 +91,27 @@ export default {
     this.scene.add(this.pointLight)
 
     // Adding a cube
-    // let geometry = new THREE.SphereGeometry()
-    // let material = new THREE.MeshPhysicalMaterial({color: 0x00ff00})
-    // let cube = new THREE.Mesh(geometry, material)
-    // this.scene.add(cube)
+    /*let geometry = new THREE.SphereGeometry()
+    let material = new THREE.MeshPhysicalMaterial({color: 0x00ff00})
+    let cube = new THREE.Mesh(geometry, material)
+    this.scene.add(cube)
+    cube.position.set(0,0,0)*/
 
     this.standardBallMaterial = new THREE.MeshPhongMaterial({color: 0xfffff0 })
     this.addBalls()
 
+    this.addAnimationPubSub()
+
     this.renderThreeJs()
   },
+
+
   methods: {
 
-    renderThreeJs () {
+    renderThreeJs (time) {
       requestAnimationFrame(this.renderThreeJs)
 
-      this.animationLoopsManager.animationLoops.forEach(loop => {
+      this.animationLoopsManager.animationLoops.filter((item) => item.alive).forEach(loop => {
         loop.loop ? loop.loop(this.balls) : loop(this.balls)
       })
 
@@ -106,7 +120,12 @@ export default {
       this.renderer.render(this.scene, this.camera)
       this.renderer.shadowMap.needsUpdate = true
 
-      this.animationLoopsManager.cleanAnimationLoops()
+      // todo performenace aeh only update if there is smth to update
+      TWEEN.update(time)
+
+
+
+      //this.animationLoopsManager.cleanAnimationLoops()
     },
 
     setLightPosition () {
@@ -140,26 +159,93 @@ export default {
           }
         }
       }
+
+      // add the basic idle animation
+      this.initAllIdleAnimation()
     },
 
-    createBall (_x,_y,_z) {
-      let animLoop = {
-        id: 'ballMovement',
+    addAnimationPubSub () {
+      PubSub.subscribe('dissolveAnimation.finished', () => {
+        if (this.isDissolveAnimationActive) {
+          this.initAllIdleAnimation()
+        }
+        this.isDissolveAnimationActive = false
+      })
+      PubSub.subscribe('dissolveAnimation.start', () => {
+        this.playDissolveAnim()
+      })
+    },
+
+    clearIdleAnimations () {
+      this.animationLoopsManager.animationLoops = this.animationLoopsManager.animationLoops.filter((item) =>
+        !item.id.includes('ballIdle')
+      )
+    },
+
+    initAllIdleAnimation () {
+      // add the idle animation for each ball
+      for (let ballId of Object.keys(this.balls)) {
+        this.initIdleAnimation (ballId)
+      }
+    },
+
+    initIdleAnimation (ballId) {
+      let idleAnimLoop = {
+        id: `ballIdle-${ballId}`,
         alive: true,
         currentPositionIndex: Math.random() -0.5,
         originPosition: null,
         loop: function (balls) {
-          let ball = balls[`ball-${_x}-${_y}-${_z}`]
+          // todo aeh performance, set ball variable in loop object first time
+          let ball = balls[ballId]
           if (!this.originPosition) {
             // Object.assign to really copy the obj ect and not just put a ref
-             this.originPosition = {... ball.position}
+            this.originPosition = {... ball.position}
           }
           //ball.position.x = this.originPosition.x + (Math.sin(this.currentPositionIndex* 3) / 4)
           ball.position.y = this.originPosition.y + (Math.sin(this.currentPositionIndex * 3) / 4)
           this.currentPositionIndex += 0.01
         }
       }
-      this.animationLoopsManager.addAnimationLoop(animLoop)
+      this.animationLoopsManager.addAnimationLoop(idleAnimLoop)
+    },
+
+    createBall (_x,_y,_z) {
+      // Add group dissolve animation
+      let dissolveAnimLoop = {
+        id: `ballDissolve-${_x}-${_y}-${_z}`,
+        alive: true,
+        originPosition: null,
+        targetPosition: new THREE.Vector3(0, 0, 0),
+        tween: null,
+        loop: function (balls) {
+          // todo aeh performance, set ball variable in loop object first time
+          let ball = balls[`ball-${_x}-${_y}-${_z}`]
+          if (!this.originPosition) {
+            // Object.assign to really copy the obj ect and not just put a ref
+             this.originPosition = {... ball.position}
+          }
+          if (!this.tween) {
+            this.tween = animateVector3(this.originPosition, this.targetPosition, {
+              duration: 5000,
+              easing : TWEEN.Easing.bounceInOu,
+              update: (d) => {
+                ball.position.x = d.x
+                ball.position.y = d.y
+                ball.position.z = d.z
+              },
+              callback: () => {
+                this.alive = false
+                PubSub.publish('dissolveAnimation.finished')
+              }
+            })
+            // disable the loop once the tween is initialized
+            this.alive = false
+          }
+          //this.tween.update(time)
+        }
+      }
+      this.animationLoopsManager.addAnimationLoop(dissolveAnimLoop)
 
       let ballSize = Math.round(Math.random()*10) / 10 + 0.5
       let geometry = new THREE.SphereBufferGeometry(ballSize, 16, 12)
@@ -170,6 +256,20 @@ export default {
       ball.position.set(x, y, z)
       this.balls[`ball-${_x}-${_y}-${_z}`] = ball
       this.scene.add(ball)
+    },
+
+    playDissolveAnim () {
+      this.isDissolveAnimationActive = true
+
+      // get all dissolve anim loops
+      let dissolveAnimationLoops = this.animationLoopsManager.animationLoops.filter((item) =>
+        item.id.includes('ballDissolve')
+      )
+      this.clearIdleAnimations()
+      dissolveAnimationLoops.forEach(loop => {
+        loop.alive = true
+        loop.tween.start()
+      })
     }
   }
 }

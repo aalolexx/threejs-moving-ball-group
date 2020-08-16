@@ -20,6 +20,10 @@ export default class AnimationLoopsManager  {
     this.animationLoops = this.animationLoops.filter(item => item.id !== loop.id)
   }
   
+  getAnimationLoop(loopId) {
+    return this.animationLoops.find(item => item.id == loopId)
+  }
+
   cleanAnimationLoops() {
     /*this.animationLoops.forEach(loop => {
       if (loop.alive !== undefined && loop.alive === false && loop.object) {
