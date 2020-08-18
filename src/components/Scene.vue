@@ -140,6 +140,7 @@ export default {
 
     addBalls () {
       // loop trough z layers
+      let ballIndex = 0
       for (let z = 0; z < ballPositionMap.length; z++) {
         // go trough y and x axis on the z layer
         let x = 0
@@ -148,7 +149,8 @@ export default {
           
           // check if - according to the position map - there should be a ball at this position
           if (ballPositionMap[z][i] == 1) {
-            this.createBall(x, y, z)
+            ballIndex++
+            this.createBall(x, y, z, ballIndex)            
           }
 
           if (x == ballPositionMap.length-1) {
@@ -210,13 +212,14 @@ export default {
       this.animationLoopsManager.addAnimationLoop(idleAnimLoop)
     },
 
-    createBall (_x,_y,_z) {
+    createBall (_x,_y,_z, index) {
+      let target2dCords = this.get2dCordsFromIndex(index)
       // Add group dissolve animation
       let dissolveAnimLoop = {
         id: `ballDissolve-${_x}-${_y}-${_z}`,
         alive: true,
         originPosition: null,
-        targetPosition: new THREE.Vector3(0, 0, 0),
+        targetPosition: new THREE.Vector3(target2dCords.x * 4, 0, target2dCords.z * 4),
         tween: null,
         loop: function (balls) {
           // todo aeh performance, set ball variable in loop object first time
@@ -270,6 +273,22 @@ export default {
         loop.alive = true
         loop.tween.start()
       })
+    },
+
+    get2dCordsFromIndex (index) {
+      let rowLenght = 8
+      let x
+      let z
+
+      z = Math.trunc(index / rowLenght)      
+      if (index%rowLenght == 0) z--
+
+      x = index - (Math.trunc(index / rowLenght) * rowLenght) - 1
+
+      return {
+        x: x,
+        z: z
+      }
     }
   }
 }
