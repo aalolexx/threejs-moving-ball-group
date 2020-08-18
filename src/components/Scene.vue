@@ -219,7 +219,7 @@ export default {
         id: `ballDissolve-${_x}-${_y}-${_z}`,
         alive: true,
         originPosition: null,
-        targetPosition: new THREE.Vector3(target2dCords.x * 4, 0, target2dCords.z * 4),
+        targetPosition: new THREE.Vector3(target2dCords.x * 4, target2dCords.y * 4, 0),
         tween: null,
         loop: function (balls) {
           // todo aeh performance, set ball variable in loop object first time
@@ -278,16 +278,16 @@ export default {
     get2dCordsFromIndex (index) {
       let rowLenght = 8
       let x
-      let z
+      let y
 
-      z = Math.trunc(index / rowLenght)      
-      if (index%rowLenght == 0) z--
+      y = Math.trunc(index / rowLenght)      
+      if (index%rowLenght == 0) y--
 
       x = index - (Math.trunc(index / rowLenght) * rowLenght) - 1
 
       return {
         x: x,
-        z: z
+        y: y
       }
     }
   }
