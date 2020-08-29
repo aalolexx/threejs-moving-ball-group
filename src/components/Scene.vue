@@ -7,7 +7,6 @@
 
 <script>
 import * as THREE from 'three'
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { ballPositionMap } from '../js/ballPositionMap.js'
 import AnimationLoopsManager from '../js/AnimationLoopsManager.js'
 import { animateVector3 } from '../js/AnimationUtils.js'
@@ -22,7 +21,6 @@ export default {
       scene: null,
       camera: null,
       renderer: null,
-      controls: null,
 
       cursorX: null,
       cursorY: null,
@@ -30,6 +28,7 @@ export default {
       animationLoopsManager: new AnimationLoopsManager(),
       isDissolveAnimationActive: false,
       ballTweens: [],
+      cameraTween: {},
 
       standardBallMaterial: null,
 
@@ -60,15 +59,14 @@ export default {
       0.1,
       1000
     )
-    this.camera.position.set(20, 7, 20)
+    this.camera.position.set(15,15,15)//(20, 15, 20)
+    this.camera.lookAt(0,0,0)
     
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
       powerPreference: "high-performance"
     })
     this.renderer.outputEncoding = THREE.sRGBEncoding
-
-    this.controls = new OrbitControls(this.camera, this.renderer.domElement)
 
     this.renderer.setSize(this.sceneCanvas.offsetWidth, this.sceneCanvas.offsetHeight)
     this.renderer.setClearColor("#ffffff")
@@ -84,7 +82,7 @@ export default {
     this.scene.add(ambientLight)
 
     this.pointLight = new THREE.PointLight(0xfc831d, 1, 100)
-    this.pointLight.position.set(15, 10, 15)
+    this.pointLight.position.set(20, 10, 20)
     this.pointLight.castShadow = true
     this.pointLight.shadow.radius = 1
     this.pointLight.shadow.mapSize.width = 2048
@@ -92,16 +90,21 @@ export default {
     this.scene.add(this.pointLight)
 
     // Adding a cube
-    /*let geometry = new THREE.SphereGeometry()
-    let material = new THREE.MeshPhysicalMaterial({color: 0x00ff00})
-    let cube = new THREE.Mesh(geometry, material)
-    this.scene.add(cube)
-    cube.position.set(0,0,0)*/
+    // let geometry = new THREE.BoxGeometry()
+    // let material = new THREE.MeshPhysicalMaterial({color: 0x00ff00})
+    // let cube = new THREE.Mesh(geometry, material)
+    // this.scene.add(cube)
+    // cube.position.set(0,0,0)
+
+    //let axesHelper = new THREE.AxesHelper( 100 )
+    //this.scene.add( axesHelper )
 
     this.standardBallMaterial = new THREE.MeshPhongMaterial({color: 0xfffff0 })
     this.addBalls()
 
     this.addAnimationPubSub()
+
+    this.initCameraTween()
 
     this.renderThreeJs()
   },
@@ -253,12 +256,45 @@ export default {
       this.ballTweens.push(tween)
     },
 
+    initCameraTween () {
+      let originPosition = {... this.camera.position}
+      let originRotationRaw = {... this.camera.rotation}
+      let originRotationVector = new THREE.Vector3(
+        originRotationRaw._x,
+        originRotationRaw._y,
+        originRotationRaw._z
+      )
+      // todo place camera relative to display dimensions
+      let targetPosition = new THREE.Vector3(10, 19, 30)
+      let targetRotation = new THREE.Vector3(-0.058, 0.006, 0)
+      this.cameraTween.positionTween = animateVector3(originPosition, targetPosition, {
+        duration: 5000,
+        easing : TWEEN.Easing.bounceInOu,
+        update: (d) => {
+          this.camera.position.x = d.x
+          this.camera.position.y = d.y
+          this.camera.position.z = d.z
+        }
+      })
+      this.cameraTween.rotationTween = animateVector3(originRotationVector, targetRotation, {
+        duration: 5000,
+        easing : TWEEN.Easing.bounceInOu,
+        update: (d) => {
+          this.camera.rotation.x = d.x
+          this.camera.rotation.y = d.y
+          this.camera.rotation.z = d.z
+        }
+      })
+    },
+
     playDissolveAnim () {
       this.clearIdleAnimations()
       this.isDissolveAnimationActive = true
       this.ballTweens.forEach(tween => {
         tween.start()
       })
+      this.cameraTween.positionTween.start()
+      this.cameraTween.rotationTween.start()
     },
 
     /* Utils Functions */
