@@ -7,6 +7,7 @@
 
 <script>
 import * as THREE from 'three'
+import * as GltfLoader from 'three-gltf-loader'
 import { ballPositionMap } from '../js/ballPositionMap.js'
 import AnimationLoopsManager from '../js/AnimationLoopsManager.js'
 import { animateVector3 } from '../js/AnimationUtils.js'
@@ -21,6 +22,8 @@ export default {
       scene: null,
       camera: null,
       renderer: null,
+
+      gltfLoader: new GltfLoader(),
 
       cursorX: null,
       cursorY: null,
@@ -46,7 +49,7 @@ export default {
   },
 
 
-  mounted () {
+  async mounted () {
     /* **************
        BASIC SETUP
     ************** */
@@ -99,6 +102,7 @@ export default {
     //let axesHelper = new THREE.AxesHelper( 100 )
     //this.scene.add( axesHelper )
 
+    this.headGltf = await this.loadGltfFile('/blender-files/simple-head.glb')
     this.standardBallMaterial = new THREE.MeshPhongMaterial({color: 0xfffff0 })
     this.addBalls()
 
@@ -172,13 +176,17 @@ export default {
 
     createBall (_x,_y,_z, index) {
       let ballSize = Math.round(Math.random()*10) / 10 + 0.5
-      let geometry = new THREE.SphereBufferGeometry(ballSize, 16, 12)
-      let ball = new THREE.Mesh(geometry, this.standardBallMaterial)
+      //let geometry = new THREE.SphereBufferGeometry(ballSize, 16, 12)
+      let ball = this.headGltf.clone()
       let x = _x * 2.4 + Math.random() - 0.5
       let y = _y * 2.6 + Math.random() - 0.5
       let z = _z * 2.4 + Math.random() - 0.5
       ball.position.set(x, y, z)
+      ball.rotation.y = 1
+      ball.scale.x = ball.scale.y = ball.scale.z = ballSize
       ball.index = index
+      let head = ball.getObjectByName('head')
+      head.material = this.standardBallMaterial
       this.balls[`ball-${_x}-${_y}-${_z}`] = ball
       this.scene.add(ball)
     },
@@ -312,6 +320,21 @@ export default {
         x: x,
         y: y
       }
+    },
+
+    async loadGltfFile (path) {
+      return new Promise((resolve) => {
+        this.gltfLoader.load(path, (gltf) => {
+          let model = gltf.scene
+          model.traverse((obj) => {
+            if (obj.isMesh) {
+              obj.castShadow = true
+              obj.receiveShadow = true
+            }
+          })
+          resolve(model)
+        })
+      })
     }
   }
 }
