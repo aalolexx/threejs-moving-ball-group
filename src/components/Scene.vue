@@ -29,6 +29,7 @@ export default {
 
       animationLoopsManager: new AnimationLoopsManager(),
       isDissolveAnimationActive: false,
+      ballTweens: [],
 
       standardBallMaterial: null,
 
@@ -123,8 +124,6 @@ export default {
       // todo performenace aeh only update if there is smth to update
       TWEEN.update(time)
 
-
-
       //this.animationLoopsManager.cleanAnimationLoops()
     },
 
@@ -164,8 +163,24 @@ export default {
 
       // add the basic idle animation
       this.initAllIdleAnimation()
+      // add the dissolve animation tweens
+      this.initAllDissolveTweens()
     },
 
+    createBall (_x,_y,_z, index) {
+      let ballSize = Math.round(Math.random()*10) / 10 + 0.5
+      let geometry = new THREE.SphereBufferGeometry(ballSize, 16, 12)
+      let ball = new THREE.Mesh(geometry, this.standardBallMaterial)
+      let x = _x * 2.4 + Math.random() - 0.5
+      let y = _y * 2.6 + Math.random() - 0.5
+      let z = _z * 2.4 + Math.random() - 0.5
+      ball.position.set(x, y, z)
+      ball.index = index
+      this.balls[`ball-${_x}-${_y}-${_z}`] = ball
+      this.scene.add(ball)
+    },
+
+    /* Animation Funcions */
     addAnimationPubSub () {
       PubSub.subscribe('dissolveAnimation.finished', () => {
         if (this.isDissolveAnimationActive) {
@@ -212,69 +227,41 @@ export default {
       this.animationLoopsManager.addAnimationLoop(idleAnimLoop)
     },
 
-    createBall (_x,_y,_z, index) {
-      let target2dCords = this.get2dCordsFromIndex(index)
-      // Add group dissolve animation
-      let dissolveAnimLoop = {
-        id: `ballDissolve-${_x}-${_y}-${_z}`,
-        alive: true,
-        originPosition: null,
-        targetPosition: new THREE.Vector3(target2dCords.x * 4, target2dCords.y * 4, 0),
-        tween: null,
-        loop: function (balls) {
-          // todo aeh performance, set ball variable in loop object first time
-          let ball = balls[`ball-${_x}-${_y}-${_z}`]
-          if (!this.originPosition) {
-            // Object.assign to really copy the obj ect and not just put a ref
-             this.originPosition = {... ball.position}
-          }
-          if (!this.tween) {
-            this.tween = animateVector3(this.originPosition, this.targetPosition, {
-              duration: 5000,
-              easing : TWEEN.Easing.bounceInOu,
-              update: (d) => {
-                ball.position.x = d.x
-                ball.position.y = d.y
-                ball.position.z = d.z
-              },
-              callback: () => {
-                this.alive = false
-                PubSub.publish('dissolveAnimation.finished')
-              }
-            })
-            // disable the loop once the tween is initialized
-            this.alive = false
-          }
-          //this.tween.update(time)
-        }
+    initAllDissolveTweens () {
+      // add the dissolve tween for each ball
+      for (let ballId of Object.keys(this.balls)) {
+        this.initDissolveTween (this.balls[ballId])
       }
-      this.animationLoopsManager.addAnimationLoop(dissolveAnimLoop)
+    },
 
-      let ballSize = Math.round(Math.random()*10) / 10 + 0.5
-      let geometry = new THREE.SphereBufferGeometry(ballSize, 16, 12)
-      let ball = new THREE.Mesh(geometry, this.standardBallMaterial)
-      let x = _x * 2.4 + Math.random() - 0.5
-      let y = _y * 2.6 + Math.random() - 0.5
-      let z = _z * 2.4 + Math.random() - 0.5
-      ball.position.set(x, y, z)
-      this.balls[`ball-${_x}-${_y}-${_z}`] = ball
-      this.scene.add(ball)
+    initDissolveTween (ball) {
+      let originPosition = {... ball.position}
+      let target2dCords = this.get2dCordsFromIndex(ball.index)
+      let targetPosition = new THREE.Vector3(target2dCords.x * 4, target2dCords.y * 4, 0)
+      let tween = animateVector3(originPosition, targetPosition, {
+        duration: 5000,
+        easing : TWEEN.Easing.bounceInOu,
+        update: (d) => {
+          ball.position.x = d.x
+          ball.position.y = d.y
+          ball.position.z = d.z
+        },
+        callback: () => {
+          PubSub.publish('dissolveAnimation.finished')
+        }
+      })
+      this.ballTweens.push(tween)
     },
 
     playDissolveAnim () {
-      this.isDissolveAnimationActive = true
-
-      // get all dissolve anim loops
-      let dissolveAnimationLoops = this.animationLoopsManager.animationLoops.filter((item) =>
-        item.id.includes('ballDissolve')
-      )
       this.clearIdleAnimations()
-      dissolveAnimationLoops.forEach(loop => {
-        loop.alive = true
-        loop.tween.start()
+      this.isDissolveAnimationActive = true
+      this.ballTweens.forEach(tween => {
+        tween.start()
       })
     },
 
+    /* Utils Functions */
     get2dCordsFromIndex (index) {
       let rowLenght = 8
       let x
