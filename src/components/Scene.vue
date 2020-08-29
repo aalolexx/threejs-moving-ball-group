@@ -62,7 +62,7 @@ export default {
       0.1,
       1000
     )
-    this.camera.position.set(15,15,15)//(20, 15, 20)
+    this.camera.position.set(15,15,15)
     this.camera.lookAt(0,0,0)
     
     this.renderer = new THREE.WebGLRenderer({
@@ -81,11 +81,11 @@ export default {
     this.sceneCanvas.append(this.renderer.domElement)
     
     // lighting
-    let ambientLight = new THREE.AmbientLight (0xdaccff, 0.5)
+    let ambientLight = new THREE.AmbientLight (0xdaccff, 1)
     this.scene.add(ambientLight)
 
-    this.pointLight = new THREE.PointLight(0xfc831d, 1, 100)
-    this.pointLight.position.set(20, 10, 20)
+    this.pointLight = new THREE.PointLight(0xfc831d, 1, 40)
+    this.pointLight.position.set(-10, 20, 20)
     this.pointLight.castShadow = true
     this.pointLight.shadow.radius = 1
     this.pointLight.shadow.mapSize.width = 2048
@@ -139,8 +139,15 @@ export default {
       let maxX = 20
 
       if (this.cursorX && this.cursorY) {
-        this.pointLight.position.x = (maxX / window.innerWidth * this.cursorX) + 5
-        this.pointLight.position.y = (maxY / window.innerHeight * -this.cursorY) + 10
+        //this.pointLight.position.x = (maxX / window.innerWidth * this.cursorX) + 5
+        //this.pointLight.position.y = (maxY / window.innerHeight * -this.cursorY) + 10
+        for (let ballId of Object.keys(this.balls)) {
+          this.balls[ballId].lookAt(
+            (maxX / window.innerWidth * this.cursorX) + 20,
+            (maxY / window.innerHeight * -this.cursorY)+ 30,
+            20
+          )
+        }
       }
     },
 
